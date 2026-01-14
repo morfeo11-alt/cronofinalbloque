@@ -200,6 +200,24 @@
       box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
     }
 
+    .audio-warning {
+      background: rgba(244, 67, 54, 0.2);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-top: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      font-size: 1.1rem;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .audio-icon {
+      font-size: 1.5rem;
+      color: #ffcc80;
+    }
+
     /* Responsive */
     @media (max-width: 992px) {
       h1 { font-size: 2.8rem; }
@@ -253,11 +271,15 @@
       <i class="fas fa-redo"></i> REINICIAR
     </button>
   </div>
-     <div class="audio-warning">
-            <i class="fas fa-volume-up"></i>
-            <div>
-                <strong>IMPORTANTE:</strong> Haz clic en la página antes de iniciar para activar el audio
-            </div>
+
+  <div class="audio-warning">
+    <div class="audio-icon">
+      <i class="fas fa-volume-up"></i>
+    </div>
+    <div>
+      <strong>IMPORTANTE:</strong> Haz clic en la página antes de iniciar para activar el audio
+    </div>
+  </div>
 </div>
 
 <script>
