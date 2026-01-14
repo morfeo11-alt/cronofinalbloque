@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cronómetro Bloque Final</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    :root {
+      --primary-dark: #0c2461;
+      --primary-light: #1e3799;
+      --accent-green: #00C853;
+      --accent-green-dark: #4CAF50;
+      --accent-blue: #2196F3;
+      --accent-blue-dark: #1976D2;
+      --accent-red: #ff4444;
+      --accent-red-dark: #d32f2f;
+      --accent-orange: #FF9800;
+      --accent-yellow: #ffcc00;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-light) 100%);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+    }
+
+    h1 {
+      font-size: 3.5rem;
+      color: var(--accent-yellow);
+      text-shadow: 0 0 25px rgba(255, 204, 0, 0.5);
+      letter-spacing: 1px;
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+    }
+
+    .phase-indicator {
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin: 1.5rem auto;
+      padding: 1rem;
+      border-radius: 15px;
+      background: rgba(255, 255, 255, 0.1);
+      width: fit-content;
+      min-width: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      transition: all 0.3s;
+    }
+
+    .bloque-activo {
+      background: rgba(0, 100, 0, 0.25);
+      border: 2px solid var(--accent-green);
+      color: #c8e6c9;
+    }
+
+    .transicion-activa {
+      background: rgba(255, 152, 0, 0.25);
+      border: 2px solid var(--accent-orange);
+      color: #ffe0b2;
+    }
+
+    .timer-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 2rem 0;
+      position: relative;
+    }
+
+    #timer {
+      font-size: 11rem;
+      font-weight: 900;
+      text-shadow: 0 0 40px rgba(255, 255, 255, 0.9);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 10px;
+      line-height: 1;
+      transition: all 0.3s;
+      display: inline-block;
+      text-align: center;
+      min-width: 500px;
+    }
+
+    .tiempo-critico {
+      color: var(--accent-red) !important;
+      animation: pulse 0.8s infinite alternate;
+      text-shadow: 0 0 50px rgba(255, 68, 68, 0.8) !important;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.03); opacity: 0.9; }
+    }
+
+    .progress-container {
+      width: 80%;
+      max-width: 600px;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 5px;
+      overflow: hidden;
+      margin: 1rem auto;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-green), var(--accent-blue));
+      width: 0%;
+      transition: width 1s linear;
+      border-radius: 5px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin: 2.5rem 0;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 1.4rem 2.8rem;
+      font-size: 1.3rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 200px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .btn-start {
+      background: linear-gradient(135deg, var(--accent-green), var(--accent-green-dark));
+      color: white;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-start:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(0, 200, 83, 0.3);
+    }
+
+    .btn-stop {
+      background: linear-gradient(135deg, var(--accent-red), var(--accent-red-dark));
+      color: white;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-stop:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(255, 68, 68, 0.3);
+    }
+
+    .btn-reset {
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-blue-dark));
+      color: white;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-reset:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(33, 150, 243, 0.3);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    /* Responsive */
+    @media (max-width: 992px) {
+      h1 { font-size: 2.8rem; }
+      #timer { font-size: 9rem; letter-spacing: 8px; min-width: 400px; }
+      .phase-indicator { font-size: 2rem; min-width: 350px; }
+      .btn { min-width: 180px; padding: 1.2rem 2.4rem; }
+    }
+
+    @media (max-width: 768px) {
+      h1 { font-size: 2.4rem; }
+      #timer { font-size: 7rem; letter-spacing: 6px; min-width: 300px; }
+      .phase-indicator { font-size: 1.7rem; min-width: 300px; padding: 0.8rem; }
+      .btn { min-width: 160px; padding: 1.1rem 2.2rem; font-size: 1.2rem; }
+      .controls { gap: 15px; }
+    }
+
+    @media (max-width: 480px) {
+      h1 { font-size: 2rem; flex-direction: column; gap: 10px; }
+      #timer { font-size: 5.5rem; letter-spacing: 4px; min-width: 250px; }
+      .phase-indicator { font-size: 1.5rem; min-width: 250px; padding: 0.8rem; }
+      .btn { min-width: 100%; padding: 1rem 1.8rem; font-size: 1.1rem; }
+      .controls { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1><i class="fas fa-hourglass-half"></i> CRONÓMETRO BLOQUE FINAL</h1>
+
+  <div id="phaseIndicator" class="phase-indicator bloque-activo">
+    <i class="fas fa-clock"></i> BLOQUE DE 4 MINUTOS
+  </div>
+
+  <div class="progress-container">
+    <div id="progressBar" class="progress-bar"></div>
+  </div>
+
+  <div class="timer-container">
+    <div id="timer">04:00</div>
+  </div>
+
+  <div class="controls">
+    <button id="startBtn" class="btn btn-start">
+      <i class="fas fa-play"></i> INICIAR
+    </button>
+    <button id="stopBtn" class="btn btn-stop">
+      <i class="fas fa-pause"></i> DETENER
+    </button>
+    <button id="resetBtn" class="btn btn-reset">
+      <i class="fas fa-redo"></i> REINICIAR
+    </button>
+  </div>
+</div>
+
+<script>
+// ================= 🔥 CONFIGURACIÓN FIREBASE =================
+// ⚠️ REEMPLAZA CON TUS CREDENCIALES
+const firebaseConfig = {
+  apiKey: "AIzaSyBnTSJbgvcdQ42n74Nl_ZfMJcfgq558Ca0",
+  authDomain: "cronometro-sincronizado.firebaseapp.com",
+  databaseURL: "https://cronometro-sincronizado-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "cronometro-sincronizado",
+  storageBucket: "cronometro-sincronizado.firebasestorage.app",
+  messagingSenderId: "672715534894",
+  appId: "1:672715534894:web:cd3b64f3676aa9a95b65bf"
+};
+// Inicializar Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ================= ⏱ CONFIGURACIÓN =================
+const TIEMPO_BLOQUE = 4 * 60;      // 4 minutos
+const TIEMPO_TRANSICION = 15;      // 15 segundos
+let intervalo = null;
+let enFaseBloque = true;
+let tiempoRestante = TIEMPO_BLOQUE;
+let tiempoTotalFase = TIEMPO_BLOQUE;
+
+// Audio
+let audioContext = null;
+let sonidosHabilitados = false;
+
+// ================= 🎵 SISTEMA DE ALARMAS =================
+function inicializarAudio() {
+  try {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    sonidosHabilitados = true;
+  } catch (e) {
+    console.error("❌ Audio no disponible:", e);
+    sonidosHabilitados = false;
+  }
+}
+
+function reproducirAlarmaLarga() {
+  if (!sonidosHabilitados) return;
+  try {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.frequency.value = 550;
+    oscillator.type = 'sawtooth';
+    const ahora = audioContext.currentTime;
+    gainNode.gain.setValueAtTime(0, ahora);
+    gainNode.gain.linearRampToValueAtTime(1.0, ahora + 0.01);
+    gainNode.gain.setValueAtTime(1.0, ahora + 1.8);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ahora + 2.2);
+    oscillator.start(ahora);
+    oscillator.stop(ahora + 2.2);
+  } catch (e) { console.log("Alarma"); }
+}
+
+function reproducirPitidoCorto() {
+  if (!sonidosHabilitados) return;
+  try {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.frequency.value = 1200;
+    oscillator.type = 'sine';
+    const ahora = audioContext.currentTime;
+    gainNode.gain.setValueAtTime(0, ahora);
+    gainNode.gain.linearRampToValueAtTime(1.0, ahora + 0.005);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ahora + 0.18);
+    oscillator.start(ahora);
+    oscillator.stop(ahora + 0.18);
+  } catch (e) { console.log("Pitido"); }
+}
+
+function reproducirPitidoFinal() {
+  if (!sonidosHabilitados) return;
+  try {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.frequency.value = 1400;
+    oscillator.type = 'square';
+    const ahora = audioContext.currentTime;
+    gainNode.gain.setValueAtTime(0, ahora);
+    gainNode.gain.linearRampToValueAtTime(1.0, ahora + 0.01);
+    gainNode.gain.setValueAtTime(1.0, ahora + 0.6);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ahora + 0.8);
+    oscillator.start(ahora);
+    oscillator.stop(ahora + 0.8);
+  } catch (e) { console.log("Pitido final"); }
+}
+
+// ================= 📡 SINCRONIZACIÓN =================
+db.ref("cronometro").on("value", snapshot => {
+  const data = snapshot.val();
+  if (!data) {
+    // Estado inicial
+    enFaseBloque = true;
+    tiempoRestante = TIEMPO_BLOQUE;
+    tiempoTotalFase = TIEMPO_BLOQUE;
+    actualizarDisplay();
+    actualizarFase();
+    habilitarControles(true, false, true);
+    clearInterval(intervalo);
+    return;
+  }
+
+  if (!data.enEjecucion) {
+    // Detenido
+    enFaseBloque = data.fase === 'transicion' ? false : true;
+    tiempoRestante = enFaseBloque ? TIEMPO_BLOQUE : TIEMPO_TRANSICION;
+    tiempoTotalFase = enFaseBloque ? TIEMPO_BLOQUE : TIEMPO_TRANSICION;
+    actualizarDisplay();
+    actualizarFase();
+    habilitarControles(true, false, true);
+    clearInterval(intervalo);
+    return;
+  }
+
+  // En ejecución - calcular tiempo restante
+  clearInterval(intervalo);
+  enFaseBloque = data.fase === 'transicion' ? false : true;
+  tiempoTotalFase = enFaseBloque ? TIEMPO_BLOQUE : TIEMPO_TRANSICION;
+  
+  const ahora = Date.now();
+  const transcurrido = Math.floor((ahora - data.inicio) / 1000);
+  tiempoRestante = Math.max(tiempoTotalFase - transcurrido, 0);
+
+  // Verificar si necesita cambiar de fase
+  if (tiempoRestante === 0) {
+    cambiarFaseAutomaticamente(data);
+    return;
+  }
+
+  actualizarDisplay();
+  actualizarFase();
+  habilitarControles(false, true, false);
+
+  // Iniciar intervalo local
+  intervalo = setInterval(() => {
+    tiempoRestante = Math.max(tiempoRestante - 1, 0);
+    actualizarDisplay();
+    manejarAlarmasLocales();
+
+    if (tiempoRestante === 0) {
+      clearInterval(intervalo);
+      cambiarFaseAutomaticamente(data);
+    }
+  }, 1000);
+});
+
+function cambiarFaseAutomaticamente(data) {
+  if (enFaseBloque) {
+    // Bloque terminado → ir a transición
+    db.ref("cronometro").set({
+      enEjecucion: true,
+      fase: 'transicion',
+      inicio: Date.now()
+    });
+  } else {
+    // Transición terminada → volver a bloque
+    db.ref("cronometro").set({
+      enEjecucion: true,
+      fase: 'bloque',
+      inicio: Date.now()
+    });
+  }
+}
+
+// ================= 🎮 CONTROLES =================
+function iniciar() {
+  db.ref("cronometro").set({
+    enEjecucion: true,
+    fase: 'bloque',
+    inicio: Date.now()
+  });
+}
+
+function detener() {
+  db.ref("cronometro").update({
+    enEjecucion: false
+  });
+}
+
+function reiniciar() {
+  db.ref("cronometro").set({
+    enEjecucion: false,
+    fase: 'bloque',
+    inicio: Date.now()
+  });
+}
+
+// ================= 🖥 INTERFAZ =================
+function actualizarDisplay() {
+  const minutos = Math.floor(tiempoRestante / 60);
+  const segundos = tiempoRestante % 60;
+  const timer = document.getElementById('timer');
+  timer.textContent = `${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`;
+  
+  // Barra de progreso
+  const progreso = ((tiempoTotalFase - tiempoRestante) / tiempoTotalFase) * 100;
+  document.getElementById('progressBar').style.width = `${progreso}%`;
+  
+  // Color crítico
+  if (tiempoRestante <= 10) {
+    timer.classList.add('tiempo-critico');
+    document.getElementById('progressBar').style.background = 'linear-gradient(90deg, var(--accent-orange), var(--accent-red))';
+  } else {
+    timer.classList.remove('tiempo-critico');
+    document.getElementById('progressBar').style.background = enFaseBloque 
+      ? 'linear-gradient(90deg, var(--accent-green), var(--accent-blue))' 
+      : 'linear-gradient(90deg, var(--accent-orange), var(--accent-yellow))';
+  }
+}
+
+function actualizarFase() {
+  const phaseIndicator = document.getElementById('phaseIndicator');
+  if (enFaseBloque) {
+    phaseIndicator.innerHTML = '<i class="fas fa-clock"></i> BLOQUE DE 4 MINUTOS';
+    phaseIndicator.className = 'phase-indicator bloque-activo';
+  } else {
+    phaseIndicator.innerHTML = '<i class="fas fa-exchange-alt"></i> TRANSICIÓN DE 15 SEGUNDOS';
+    phaseIndicator.className = 'phase-indicator transicion-activa';
+  }
+}
+
+function manejarAlarmasLocales() {
+  // Alarma de 1 minuto (solo en bloque)
+  if (enFaseBloque && tiempoRestante === 60) {
+    console.log("⚠️ Alarma: 1 minuto restante");
+    reproducirAlarmaLarga();
+  }
+  
+  // Últimos 5 segundos
+  if (tiempoRestante <= 5 && tiempoRestante > 0) {
+    console.log(`⏱️ ${tiempoRestante}...`);
+    if (tiempoRestante === 1) {
+      reproducirPitidoFinal(); // Último pitido más largo
+    } else {
+      reproducirPitidoCorto();
+    }
+  }
+}
+
+function habilitarControles(iniciar, detener, reiniciar) {
+  document.getElementById('startBtn').disabled = !iniciar;
+  document.getElementById('stopBtn').disabled = !detener;
+  document.getElementById('resetBtn').disabled = !reiniciar;
+}
+
+// ================= 🚀 INICIALIZACIÓN =================
+document.getElementById('startBtn').addEventListener('click', iniciar);
+document.getElementById('stopBtn').addEventListener('click', detener);
+document.getElementById('resetBtn').addEventListener('click', reiniciar);
+
+// Activar audio al primer clic
+document.addEventListener('click', function() {
+  if (!sonidosHabilitados) inicializarAudio();
+}, { once: true });
+
+// Estado inicial
+actualizarDisplay();
+actualizarFase();
+habilitarControles(true, false, true);
+
+console.log("🚀 Cronómetro sincronizado listo");
+</script>
+</body>
+</html>
