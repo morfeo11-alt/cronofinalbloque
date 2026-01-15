@@ -200,22 +200,26 @@
       box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
     }
 
-    .audio-warning {
-      background: rgba(244, 67, 54, 0.2);
-      border-radius: 12px;
-      padding: 1rem;
-      margin-top: 1.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 15px;
-      font-size: 1.1rem;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+    /* Indicador de conexión */
+    .conexion-indicator {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      padding: 8px 15px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      z-index: 1000;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s;
     }
-
-    .audio-icon {
-      font-size: 1.5rem;
-      color: #ffcc80;
+    .conexion-activa { 
+      background: var(--accent-green); 
+      color: white;
+    }
+    .conexion-inactiva { 
+      background: var(--accent-red); 
+      color: white;
     }
 
     /* Responsive */
@@ -232,6 +236,12 @@
       .phase-indicator { font-size: 1.7rem; min-width: 300px; padding: 0.8rem; }
       .btn { min-width: 160px; padding: 1.1rem 2.2rem; font-size: 1.2rem; }
       .controls { gap: 15px; }
+      .conexion-indicator {
+        top: 10px;
+        right: 10px;
+        font-size: 0.8rem;
+        padding: 6px 12px;
+      }
     }
 
     @media (max-width: 480px) {
@@ -244,6 +254,11 @@
   </style>
 </head>
 <body>
+
+<!-- Indicador de conexión -->
+<div id="conexionIndicator" class="conexion-indicator conexion-activa">
+  <i class="fas fa-wifi"></i> CONECTADO
+</div>
 
 <div class="container">
   <h1><i class="fas fa-hourglass-half"></i> CRONÓMETRO BLOQUE FINAL</h1>
@@ -271,20 +286,10 @@
       <i class="fas fa-redo"></i> REINICIAR
     </button>
   </div>
-
-  <div class="audio-warning">
-    <div class="audio-icon">
-      <i class="fas fa-volume-up"></i>
-    </div>
-    <div>
-      <strong>IMPORTANTE:</strong> Haz clic en la página antes de iniciar para activar el audio
-    </div>
-  </div>
 </div>
 
 <script>
 // ================= 🔥 CONFIGURACIÓN FIREBASE =================
-// ⚠️ REEMPLAZA CON TUS CREDENCIALES
 const firebaseConfig = {
   apiKey: "AIzaSyBnTSJbgvcdQ42n74Nl_ZfMJcfgq558Ca0",
   authDomain: "cronometro-sincronizado.firebaseapp.com",
@@ -294,6 +299,7 @@ const firebaseConfig = {
   messagingSenderId: "672715534894",
   appId: "1:672715534894:web:cd3b64f3676aa9a95b65bf"
 };
+
 // Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
@@ -392,66 +398,73 @@ db.ref("cronometro").on("value", snapshot => {
     return;
   }
 
-  if (!data.enEjecucion) {
-    // Detenido
-    enFaseBloque = data.fase === 'transicion' ? false : true;
-    tiempoRestante = enFaseBloque ? TIEMPO_BLOQUE : TIEMPO_TRANSICION;
-    tiempoTotalFase = enFaseBloque ? TIEMPO_BLOQUE : TIEMPO_TRANSICION;
-    actualizarDisplay();
-    actualizarFase();
-    habilitarControles(true, false, true);
-    clearInterval(intervalo);
-    return;
-  }
-
-  // En ejecución - calcular tiempo restante
-  clearInterval(intervalo);
-  enFaseBloque = data.fase === 'transicion' ? false : true;
+  // Calcular tiempo restante basado en el timestamp del servidor
+  const ahora = Date.now();
+  const tiempoTranscurrido = Math.floor((ahora - data.inicio) / 1000);
+  
+  // Determinar fase actual
+  enFaseBloque = data.fase === 'bloque';
   tiempoTotalFase = enFaseBloque ? TIEMPO_BLOQUE : TIEMPO_TRANSICION;
   
-  const ahora = Date.now();
-  const transcurrido = Math.floor((ahora - data.inicio) / 1000);
-  tiempoRestante = Math.max(tiempoTotalFase - transcurrido, 0);
+  // Calcular tiempo restante REAL
+  tiempoRestante = Math.max(tiempoTotalFase - tiempoTranscurrido, 0);
 
-  // Verificar si necesita cambiar de fase
-  if (tiempoRestante === 0) {
-    cambiarFaseAutomaticamente(data);
-    return;
-  }
-
+  // Actualizar interfaz
   actualizarDisplay();
   actualizarFase();
-  habilitarControles(false, true, false);
 
-  // Iniciar intervalo local
-  intervalo = setInterval(() => {
-    tiempoRestante = Math.max(tiempoRestante - 1, 0);
-    actualizarDisplay();
-    manejarAlarmasLocales();
+  // Manejar estado de ejecución
+  if (data.enEjecucion) {
+    // Cronómetro corriendo
+    habilitarControles(false, true, false);
+    
+    // Limpiar intervalo anterior
+    clearInterval(intervalo);
+    
+    // Crear nuevo intervalo sincronizado
+    intervalo = setInterval(() => {
+      tiempoRestante = Math.max(tiempoRestante - 1, 0);
+      actualizarDisplay();
+      manejarAlarmasLocales();
 
-    if (tiempoRestante === 0) {
-      clearInterval(intervalo);
-      cambiarFaseAutomaticamente(data);
-    }
-  }, 1000);
+      // Verificar cambio de fase LOCALMENTE
+      if (tiempoRestante === 0) {
+        clearInterval(intervalo);
+        // Cambiar fase en Firebase (solo si somos el primero en detectarlo)
+        cambiarFaseEnFirebase(data);
+      }
+    }, 1000);
+  } else {
+    // Cronómetro detenido
+    habilitarControles(true, false, true);
+    clearInterval(intervalo);
+  }
 });
 
-function cambiarFaseAutomaticamente(data) {
-  if (enFaseBloque) {
-    // Bloque terminado → ir a transición
-    db.ref("cronometro").set({
-      enEjecucion: true,
-      fase: 'transicion',
-      inicio: Date.now()
-    });
-  } else {
-    // Transición terminada → volver a bloque
-    db.ref("cronometro").set({
-      enEjecucion: true,
-      fase: 'bloque',
-      inicio: Date.now()
-    });
-  }
+function cambiarFaseEnFirebase(dataActual) {
+  // Obtener estado actual para evitar conflictos
+  db.ref("cronometro").once("value").then(snapshot => {
+    const data = snapshot.val();
+    if (!data || !data.enEjecucion) return;
+    
+    // Verificar que aún estemos en la misma fase
+    if (data.fase !== dataActual.fase) return;
+    
+    // Calcular si realmente debería cambiar
+    const ahora = Date.now();
+    const tiempoTranscurrido = Math.floor((ahora - data.inicio) / 1000);
+    const tiempoTotal = data.fase === 'bloque' ? TIEMPO_BLOQUE : TIEMPO_TRANSICION;
+    
+    if (tiempoTranscurrido >= tiempoTotal) {
+      // Cambiar fase
+      const nuevaFase = data.fase === 'bloque' ? 'transicion' : 'bloque';
+      db.ref("cronometro").set({
+        enEjecucion: true,
+        fase: nuevaFase,
+        inicio: Date.now()
+      });
+    }
+  });
 }
 
 // ================= 🎮 CONTROLES =================
@@ -534,6 +547,20 @@ function habilitarControles(iniciar, detener, reiniciar) {
   document.getElementById('stopBtn').disabled = !detener;
   document.getElementById('resetBtn').disabled = !reiniciar;
 }
+
+// ================= 📶 MONITOREO DE CONEXIÓN =================
+db.ref(".info/connected").on("value", snapshot => {
+  const conectado = snapshot.val();
+  const indicator = document.getElementById('conexionIndicator');
+  
+  if (conectado) {
+    indicator.innerHTML = '<i class="fas fa-wifi"></i> CONECTADO';
+    indicator.className = 'conexion-indicator conexion-activa';
+  } else {
+    indicator.innerHTML = '<i class="fas fa-wifi-slash"></i> SIN CONEXIÓN';
+    indicator.className = 'conexion-indicator conexion-inactiva';
+  }
+});
 
 // ================= 🚀 INICIALIZACIÓN =================
 document.getElementById('startBtn').addEventListener('click', iniciar);
